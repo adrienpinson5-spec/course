@@ -35,6 +35,9 @@ button{border:0;cursor:pointer;border-radius:10px;font-weight:600;font-size:1rem
 .btn:disabled{opacity:.55;cursor:default}
 .ghost{background:#fff;color:var(--ink);border:1.5px solid var(--line);margin-top:10px}.ghost:hover{border-color:var(--ink)}
 button:focus-visible,input:focus-visible{outline:3px solid #7aa7ff!important;outline-offset:2px}
+.addr-wrap{display:flex;gap:8px;align-items:stretch;margin:12px 0 14px}
+.addr-wrap input{flex:1;min-width:0;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:.96rem;color:var(--ink);background:#fff}
+.addr-wrap button{width:auto;min-width:0;padding:12px 14px;white-space:nowrap}
 .row{display:flex;justify-content:space-between;align-items:baseline;margin:18px 0 6px}
 .row label{font-weight:600}
 .val{font:700 1.7rem "Barlow Condensed",sans-serif}.val small{font:500 .9rem Barlow;color:var(--mut);margin-left:3px}
@@ -76,8 +79,12 @@ input[type=range]{width:100%;accent-color:var(--acc);height:28px;-webkit-user-se
  <div class="head"><h1>Boucle</h1><p>Un parcours de course sur mesure, au pied de chez vous.</p></div>
 
  <div class="body" id="v1">
-  <p>Autorisez la localisation pour partir de votre position exacte. Le GPS de votre téléphone est bien plus précis que celui d'un ordinateur.</p>
+  <p>Vous pouvez partir de votre position GPS ou de n’importe quelle adresse. L’adresse est convertie en coordonnées avant de créer le parcours.</p>
   <div class="gps hide" id="gps"><i></i><span id="gpsTxt"></span></div>
+  <div class="addr-wrap">
+   <input id="addressInput" type="text" placeholder="Saisir une adresse, ex. 12 rue de Paris" aria-label="Adresse">
+   <button class="btn" id="addressBtn" type="button">OK</button>
+  </div>
   <button class="btn" id="loc">Me localiser</button>
   <button class="ghost hide" id="useNow">Utiliser cette position</button>
  </div>
@@ -121,6 +128,15 @@ map.getContainer().addEventListener('mousedown',e=>{if(e.target.tagName!=='A')e.
 let me=null,acc=null,meMark=null,accCircle=null,layer=null,coords=[],tries=0,watch=null,best=null,timer=null;
 const show=v=>['v1','v2','v3'].forEach(x=>$(x).classList.toggle('hide',x!==v));
 
+function drawCoords(lat,lng,accuracy=40,label='Position enregistrée'){
+  const ll=[lat,lng];
+  if(!meMark){meMark=L.marker(ll,{icon:L.divIcon({className:'',html:'<div class="me"></div>',iconSize:[18,18]}),interactive:false}).addTo(map);
+    accCircle=L.circle(ll,{radius:accuracy,color:'#2d6cdf',weight:1,fillOpacity:.1,interactive:false}).addTo(map)}
+  else{meMark.setLatLng(ll);accCircle.setLatLng(ll).setRadius(accuracy)}
+  if(label){setGps($('gps2'),label,'ok',false)}
+  map.fitBounds(accCircle.getBounds(),{maxZoom:17,padding:[40,40]});
+}
+
 /* ---------- Localisation précise ---------- */
 function setGps(el,txt,cls,scan){el.parentElement||0;const box=el;box.className='gps '+cls+(scan?' scan':'');box.querySelector('span').textContent=txt}
 function quality(a){return a<=30?['ok','Très bonne précision']:a<=100?['mid','Précision correcte']:['bad','Précision faible']}
@@ -130,6 +146,29 @@ function draw(p){
     accCircle=L.circle(ll,{radius:c.accuracy,color:'#2d6cdf',weight:1,fillOpacity:.1,interactive:false}).addTo(map)}
   else{meMark.setLatLng(ll);accCircle.setLatLng(ll).setRadius(c.accuracy)}
   map.fitBounds(accCircle.getBounds(),{maxZoom:17,padding:[40,40]});
+}
+async function locateByAddress(){
+  const address=$('addressInput').value.trim();
+  if(!address){setGps($('gps'),'Saisissez une adresse pour commencer.','bad',false);$('gps').classList.remove('hide');return}
+  $('addressBtn').disabled=true;$('addressBtn').innerHTML='<span class="spin"></span>';
+  setGps($('gps'),'Recherche de l’adresse…','scan',true);$('gps').classList.remove('hide');
+  try{
+    const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(address);
+    const res=await fetch(url,{headers:{'Accept-Language':'fr'}});
+    if(!res.ok) throw new Error('Le service de géocodage est indisponible.');
+    const data=await res.json();
+    if(!data.length) throw new Error('Aucune adresse trouvée. Vérifiez l’orthographe.');
+    const place=data[0];
+    const lat=Number(place.lat),lng=Number(place.lon);
+    me={lat,lng};acc=60;
+    drawCoords(lat,lng,acc,'Adresse trouvée : '+(place.display_name||address).split(',').slice(0,3).join(', '));
+    $('addressInput').value=place.display_name || address;
+    show('v2');
+  }catch(err){
+    setGps($('gps'),err.message || 'Adresse introuvable. Réessayez avec une adresse plus précise.','bad',false);$('gps').querySelector('span').classList.add('err');
+  }finally{
+    $('addressBtn').disabled=false;$('addressBtn').textContent='OK';
+  }
 }
 function startLocate(){
   if(!navigator.geolocation){fail('La géolocalisation n\'est pas disponible sur ce navigateur.');return}
@@ -161,6 +200,8 @@ function finishLocate(silent){
   show('v2');
 }
 $('loc').onclick=startLocate;
+$('addressBtn').onclick=locateByAddress;
+$('addressInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();locateByAddress();}});
 $('useNow').onclick=()=>finishLocate();
 $('refine').onclick=startLocate;
 

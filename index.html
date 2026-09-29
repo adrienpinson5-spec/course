@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="referrer" content="origin">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Boucle – votre parcours de course sur mesure</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{--ink:#12233a;--ink2:#2b3f5c;--mut:#66758a;--acc:#e4572e;--acc2:#c9431d;--bg:#f4f6f9;--line:#e1e6ed}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{font-family:Barlow,system-ui,sans-serif;color:var(--ink);background:var(--bg);overflow:hidden;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#map{position:absolute;inset:0}
+.leaflet-container{outline:none;background:#e9edf2;font-family:Barlow,sans-serif}
+.leaflet-container *{outline:none;-webkit-user-drag:none}
+.leaflet-tile{-webkit-user-drag:none;pointer-events:none}
+::selection{background:transparent}
+input,button{font-family:inherit}
+.panel{position:absolute;z-index:1000;top:18px;left:18px;width:372px;max-height:calc(100% - 36px);overflow:auto;
+  background:#fff;border-radius:16px;box-shadow:0 12px 40px rgba(18,35,58,.22)}
+.head{background:var(--ink);color:#fff;padding:18px 22px 16px;position:relative;border-radius:16px 16px 0 0;overflow:hidden}
+.head::after{content:"";position:absolute;left:0;right:0;bottom:0;height:6px;
+  background:repeating-linear-gradient(90deg,var(--acc) 0 26px,transparent 26px 34px)}
+.head h1{margin:0;font:700 2.1rem/1 "Barlow Condensed",sans-serif;letter-spacing:.5px}
+.head p{margin:6px 0 0;color:#b9c6d8;font-size:.95rem}
+.body{padding:20px 22px 22px}
+.body p{margin:0 0 14px;line-height:1.5;color:var(--ink2)}
+.hide{display:none!important}
+button{border:0;cursor:pointer;border-radius:10px;font-weight:600;font-size:1rem;padding:13px 16px;width:100%;transition:background .15s,transform .05s}
+.btn{background:var(--acc);color:#fff}.btn:hover{background:var(--acc2)}.btn:active{transform:scale(.99)}
+.btn:disabled{opacity:.55;cursor:default}
+.ghost{background:#fff;color:var(--ink);border:1.5px solid var(--line);margin-top:10px}.ghost:hover{border-color:var(--ink)}
+button:focus-visible,input:focus-visible{outline:3px solid #7aa7ff!important;outline-offset:2px}
+.row{display:flex;justify-content:space-between;align-items:baseline;margin:18px 0 6px}
+.row label{font-weight:600}
+.val{font:700 1.7rem "Barlow Condensed",sans-serif}.val small{font:500 .9rem Barlow;color:var(--mut);margin-left:3px}
+input[type=range]{width:100%;accent-color:var(--acc);height:28px;-webkit-user-select:auto;user-select:auto}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{width:auto;padding:7px 14px;background:var(--bg);color:var(--ink);border-radius:20px;font-size:.9rem}
+.chip.on{background:var(--ink);color:#fff}
+.pace{margin:16px 0 4px;padding:12px 14px;background:var(--bg);border-radius:10px;font-size:.95rem;color:var(--ink2)}
+.pace b{color:var(--ink)}
+.gps{display:flex;align-items:center;gap:12px;padding:14px;border-radius:12px;background:var(--bg);margin-bottom:14px}
+.gps i{width:12px;height:12px;border-radius:50%;background:var(--mut);flex:none}
+.gps.ok i{background:#2a9d5c}.gps.mid i{background:#e9a020}.gps.bad i{background:var(--acc)}
+.gps.scan i{animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.25}}
+.gps span{font-size:.95rem;line-height:1.35}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.stat{background:var(--bg);border-radius:12px;padding:12px 8px;text-align:center}
+.stat b{display:block;font:700 1.9rem/1 "Barlow Condensed",sans-serif}
+.stat span{font-size:.8rem;color:var(--mut)}
+.note{font-size:.88rem;color:var(--mut);margin:0 0 12px;line-height:1.4}
+.err{color:#b3261e}
+.spin{display:inline-block;width:16px;height:16px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-3px;margin-right:8px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.me{width:18px;height:18px;border-radius:50%;background:#2d6cdf;border:3px solid #fff;box-shadow:0 0 0 0 rgba(45,108,223,.5);animation:ring 2s infinite}
+@keyframes ring{to{box-shadow:0 0 0 16px rgba(45,108,223,0)}}
+.km{background:var(--ink);color:#fff;border:2px solid #fff;border-radius:50%;width:22px;height:22px;text-align:center;font:700 .75rem/18px Barlow,sans-serif}
+.flag{background:var(--acc);color:#fff;border:2px solid #fff;border-radius:6px;padding:2px 8px;font:700 .8rem Barlow,sans-serif;white-space:nowrap;width:auto!important;height:auto!important}
+.leaflet-control-zoom a{color:var(--ink)!important}
+@media(max-width:700px){
+ .panel{top:auto;left:0;right:0;bottom:0;width:100%;max-height:64%;border-radius:18px 18px 0 0}
+ .head{border-radius:18px 18px 0 0;padding:14px 20px 12px}.head h1{font-size:1.7rem}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<section class="panel">
+ <div class="head"><h1>Boucle</h1><p>Un parcours de course sur mesure, au pied de chez vous.</p></div>
+
+ <div class="body" id="v1">
+  <p>Autorisez la localisation pour partir de votre position exacte. Le GPS de votre téléphone est bien plus précis que celui d'un ordinateur.</p>
+  <div class="gps hide" id="gps"><i></i><span id="gpsTxt"></span></div>
+  <button class="btn" id="loc">Me localiser</button>
+  <button class="ghost hide" id="useNow">Utiliser cette position</button>
+ </div>
+
+ <div class="body hide" id="v2">
+  <div class="gps" id="gps2"><i></i><span id="gps2Txt"></span></div>
+  <div class="row"><label for="km">Distance</label><div class="val"><span id="kmV">5</span><small>km</small></div></div>
+  <input id="km" type="range" min="1" max="30" step="0.5" value="5">
+  <div class="chips" id="chips"></div>
+  <div class="row"><label for="min">Durée</label><div class="val"><span id="minV">30</span><small>min</small></div></div>
+  <input id="min" type="range" min="5" max="240" step="5" value="30">
+  <div class="pace" id="pace"></div>
+  <button class="btn" id="go" style="margin-top:14px">Créer mon parcours</button>
+  <button class="ghost" id="refine">Affiner ma position</button>
+ </div>
+
+ <div class="body hide" id="v3">
+  <div class="stats">
+   <div class="stat"><b id="rKm">–</b><span>kilomètres</span></div>
+   <div class="stat"><b id="rMin">–</b><span>minutes</span></div>
+   <div class="stat"><b id="rPace">–</b><span>min/km</span></div>
+  </div>
+  <p class="note" id="rNote"></p>
+  <button class="btn" id="alt">Proposer un autre parcours</button>
+  <button class="ghost" id="gpx">Télécharger le GPX</button>
+  <button class="ghost" id="back">Modifier mes objectifs</button>
+ </div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const map=L.map('map',{zoomControl:false,keyboard:false}).setView([46.6,2.4],6);
+L.control.zoom({position:'topright'}).addTo(map);
+/* Fond de carte sans clé API (Esri). Pour en changer, modifiez seulement TILE_URL. */
+const TILE_URL='https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+L.tileLayer(TILE_URL,{maxZoom:19,attribution:'Fond de carte © Esri, HERE, Garmin, © contributeurs OpenStreetMap'}).addTo(map);
+map.getContainer().addEventListener('selectstart',e=>e.preventDefault());
+map.getContainer().addEventListener('mousedown',e=>{if(e.target.tagName!=='A')e.preventDefault()});
+
+let me=null,acc=null,meMark=null,accCircle=null,layer=null,coords=[],tries=0,watch=null,best=null,timer=null;
+const show=v=>['v1','v2','v3'].forEach(x=>$(x).classList.toggle('hide',x!==v));
+
+/* ---------- Localisation précise ---------- */
+function setGps(el,txt,cls,scan){el.parentElement||0;const box=el;box.className='gps '+cls+(scan?' scan':'');box.querySelector('span').textContent=txt}
+function quality(a){return a<=30?['ok','Très bonne précision']:a<=100?['mid','Précision correcte']:['bad','Précision faible']}
+function draw(p){
+  const c=p.coords,ll=[c.latitude,c.longitude];
+  if(!meMark){meMark=L.marker(ll,{icon:L.divIcon({className:'',html:'<div class="me"></div>',iconSize:[18,18]}),interactive:false}).addTo(map);
+    accCircle=L.circle(ll,{radius:c.accuracy,color:'#2d6cdf',weight:1,fillOpacity:.1,interactive:false}).addTo(map)}
+  else{meMark.setLatLng(ll);accCircle.setLatLng(ll).setRadius(c.accuracy)}
+  map.fitBounds(accCircle.getBounds(),{maxZoom:17,padding:[40,40]});
+}
+function startLocate(){
+  if(!navigator.geolocation){fail('La géolocalisation n\'est pas disponible sur ce navigateur.');return}
+  best=null;show('v1');$('gps').classList.remove('hide');$('useNow').classList.add('hide');
+  $('loc').disabled=true;$('loc').innerHTML='<span class="spin"></span>Recherche du signal…';
+  setGps($('gps'),'Acquisition de la position…','scan',true);
+  watch=navigator.geolocation.watchPosition(p=>{
+    if(!best||p.coords.accuracy<best.coords.accuracy){best=p;draw(p)}
+    const [c,t]=quality(best.coords.accuracy);
+    setGps($('gps'),t+' : ±'+Math.round(best.coords.accuracy)+' m','scan '+c,true);
+    $('useNow').classList.remove('hide');
+    if(best.coords.accuracy<=25)finishLocate();
+  },e=>{
+    if(best&&e.code!==1)return;
+    finishLocate(true);
+    fail(e.code===1?'Localisation refusée. Cliquez sur le cadenas à côté de l\'adresse, autorisez la position, puis réessayez.':'Position introuvable. Activez les services de localisation de votre appareil et réessayez.');
+  },{enableHighAccuracy:true,maximumAge:0,timeout:30000});
+  timer=setTimeout(()=>finishLocate(),20000);
+}
+function fail(msg){$('gps').classList.remove('hide');setGps($('gps'),msg,'bad',false);$('gps').querySelector('span').classList.add('err')}
+function resetLoc(){$('loc').disabled=false;$('loc').textContent='Me localiser'}
+function finishLocate(silent){
+  if(watch!==null){navigator.geolocation.clearWatch(watch);watch=null}
+  clearTimeout(timer);resetLoc();
+  if(silent||!best)return;
+  me={lat:best.coords.latitude,lng:best.coords.longitude};acc=best.coords.accuracy;
+  const [c,t]=quality(acc);
+  setGps($('gps2'),t+' : ±'+Math.round(acc)+' m'+(acc>100?'. Sur ordinateur, le GPS est souvent absent : essayez sur téléphone pour un départ exact.':''),c,false);
+  show('v2');
+}
+$('loc').onclick=startLocate;
+$('useNow').onclick=()=>finishLocate();
+$('refine').onclick=startLocate;
+
+/* ---------- Réglages ---------- */
+const kmI=$('km'),minI=$('min');
+[3,5,8,10,15,21].forEach(k=>{const b=document.createElement('button');b.className='chip';b.textContent=k+' km';b.onclick=()=>{kmI.value=k;upd()};b.dataset.k=k;$('chips').appendChild(b)});
+const fmt=p=>Math.floor(p)+':'+String(Math.round((p%1)*60)%60).padStart(2,'0');
+function upd(){
+  const D=+kmI.value,T=+minI.value,p=T/D;
+  $('kmV').textContent=D;$('minV').textContent=T;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',+c.dataset.k===D));
+  const h=p<3.5?' – rythme de compétiteur.':p<5?' – allure soutenue.':p<7?' – allure confortable.':p<9?' – footing tranquille.':' – plutôt de la marche active.';
+  $('pace').innerHTML='Allure à tenir : <b>'+fmt(p)+' min/km</b>'+h;
+}
+kmI.oninput=minI.oninput=upd;upd();
+
+/* ---------- Calcul du parcours ---------- */
+const R=6371,rad=x=>x*Math.PI/180;
+function dest(p,brg,d){const b=rad(brg),la=rad(p.lat),lo=rad(p.lng),a=d/R;
+  const la2=Math.asin(Math.sin(la)*Math.cos(a)+Math.cos(la)*Math.sin(a)*Math.cos(b));
+  const lo2=lo+Math.atan2(Math.sin(b)*Math.sin(a)*Math.cos(la),Math.cos(a)-Math.sin(la)*Math.sin(la2));
+  return{lat:la2*180/Math.PI,lng:lo2*180/Math.PI}}
+function hav(a,b){const dl=rad(b[1]-a[1]),dn=rad(b[0]-a[0]);const x=Math.sin(dl/2)**2+Math.cos(rad(a[1]))*Math.cos(rad(b[1]))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+async function route(r,brg){
+  const pts=[me,dest(me,brg,r),dest(me,brg+60,r),me];
+  const u='https://routing.openstreetmap.de/routed-foot/route/v1/foot/'+pts.map(p=>p.lng+','+p.lat).join(';')+'?overview=full&geometries=geojson';
+  const j=await(await fetch(u)).json();
+  if(!j.routes||!j.routes[0])throw new Error('Aucun chemin piéton trouvé à cet endroit.');
+  return j.routes[0]}
+async function build(){
+  const D=+kmI.value,T=+minI.value;
+  $('alt').disabled=$('go').disabled=true;
+  $('go').innerHTML='<span class="spin"></span>Calcul en cours…';
+  try{
+    const brg=(tries++*97+Math.random()*40)%360;let r=D/3.6,bestR=null;
+    for(let i=0;i<4;i++){const rt=await route(r,brg),km=rt.distance/1000;
+      if(!bestR||Math.abs(km-D)<Math.abs(bestR.distance/1000-D))bestR=rt;
+      if(Math.abs(km-D)/D<.08)break;r*=D/km}
+    const km=bestR.distance/1000;coords=bestR.geometry.coordinates;
+    if(layer)map.removeLayer(layer);
+    layer=L.layerGroup().addTo(map);
+    const g={type:'Feature',geometry:bestR.geometry};
+    L.geoJSON(g,{style:{color:'#fff',weight:9,opacity:.95},interactive:false}).addTo(layer);
+    L.geoJSON(g,{style:{color:'#e4572e',weight:5,lineCap:'round',lineJoin:'round'},interactive:false}).addTo(layer);
+    let cum=0,next=1;
+    for(let i=1;i<coords.length;i++){cum+=hav(coords[i-1],coords[i]);
+      while(cum>=next&&next<km-.3){L.marker([coords[i][1],coords[i][0]],{icon:L.divIcon({className:'',html:'<div class="km">'+next+'</div>',iconSize:[22,22]}),interactive:false}).addTo(layer);next++}}
+    L.marker([me.lat,me.lng],{icon:L.divIcon({className:'',html:'<div class="flag">Départ / Arrivée</div>',iconSize:[0,0],iconAnchor:[-14,30]}),interactive:false}).addTo(layer);
+    map.fitBounds(L.geoJSON(g).getBounds(),{padding:[50,50],paddingBottomRight:innerWidth>700?[50,50]:[50,innerHeight*.4]});
+    $('rKm').textContent=km.toFixed(1);$('rMin').textContent=T;$('rPace').textContent=fmt(T/km);
+    const off=Math.abs(km-D)/D;
+    $('rNote').textContent=off>.12?'Distance approchée ('+D+' km demandés) : le réseau de chemins limite la précision. Essayez un autre parcours.':'Boucle piétonne partant de votre position. Les repères numérotés marquent chaque kilomètre.';
+    show('v3');
+  }catch(e){show('v2');setGps($('gps2'),'Erreur : '+e.message+' Vérifiez votre connexion et réessayez.','bad',false)}
+  $('alt').disabled=$('go').disabled=false;$('go').textContent='Créer mon parcours';
+}
+$('go').onclick=()=>{tries=0;build()};
+$('alt').onclick=build;
+$('back').onclick=()=>show('v2');
+$('gpx').onclick=()=>{
+  const g='<?xml version="1.0"?><gpx version="1.1" creator="Boucle"><trk><name>Parcours Boucle</name><trkseg>'+coords.map(c=>'<trkpt lat="'+c[1]+'" lon="'+c[0]+'"/>').join('')+'</trkseg></trk></gpx>';
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([g],{type:'application/gpx+xml'}));a.download='parcours-boucle.gpx';a.click()};
+</script>
+</body>
+</html>
